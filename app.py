@@ -48,6 +48,22 @@ def signup():
             return redirect(url_for('login'))
 
     return render_template('signup.html')
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
 
+        cursor.execute('SELECT * FROM users WHERE email=%s AND password=%s', (email, password))
+        user = cursor.fetchone()
+
+        if user:
+            session['user_email'] = email
+            flash('Login successful!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid email or password. Please try again.', 'error')
+
+    return render_template('login.html')
 if __name__ == '__main__':
     app.run(debug=True)
