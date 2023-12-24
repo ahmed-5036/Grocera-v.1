@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, abort, session
+from flask_mail import Mail, Message
 import mysql.connector
 import bcrypt
 import uuid
@@ -15,6 +16,15 @@ db_config = {
     'raise_on_warnings': True,
 }
 
+# email configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USERNAME'] = 'grocerystore33@gmail.com'
+app.config['MAIL_PASSWORD'] = '3just_2023'
+
+mail = Mail(app)
 # Create a MySQL connection and cursor
 connection = mysql.connector.connect(**db_config)
 cursor = connection.cursor()
