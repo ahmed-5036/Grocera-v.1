@@ -211,5 +211,46 @@ def forgot_password():
         cursor.close()
         connection.close()
 
+
+# Enter OTP Endpoint
+@app.route('/api/enter_otp', methods=['POST'])
+def enter_otp():
+    data = request.json
+    entered_otp = data.get('otp')
+
+    # Retrieve the email from the session
+    email = session.get('reset_email')
+
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        if user:
+            # Check if the entered OTP matches the one stored in the database
+            if entered_otp == user[8] and datetime.now() < user[9]:
+                # OTP is valid
+                cursor.execute("""
+                                UPDATE users
+                                SET otp_change_allowed = TRUE
+                                WHERE email = %s
+                            """, (email, ))
+                connection.commit()
+                return jsonify({'message': 'OTP verification successful!'}), 201
+            else:
+                # OTP is either incorrect or expired
+                abort(401, 'Invalid or expired OTP. Please try again.')
+
+        else:
+            # User not found
+            abort(404, 'User not found. Please enter a valid email address.')
+
+    finally:
+        cursor.close()
+        connection.close()
+        
+
 if __name__ == '__main__':
     app.run(debug=True)
