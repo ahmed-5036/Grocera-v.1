@@ -1,5 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, request, jsonify, abort, session
 import mysql.connector
+import bcrypt
+import uuid
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -97,31 +99,42 @@ connection.commit()
 cursor.close()
 connection.close()
 
-# Routes for login, sign up, and forgot password
-@app.route('/')
-def index():
-    return 'Welcome to the grocery store app!'
+# Registration Endpoint
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
+    first_name = data.get('first name')
+    last_name = data.get('last name')
+    address = data.get('address')
+    birthdate = data.get('birthdate')
+    usertoken = str(uuid.uuid4())
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
 
-        # Check if email is already taken
-        cursor.execute('SELECT * FROM users WHERE email=%s', (email,))
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
         if user:
-            flash('Email already exists. Please choose a different one.', 'error')
-        else:
-            # Create a new user
-            cursor.execute('INSERT INTO users (email, password) VALUES (%s, %s)', (email, password))
-            db.commit()
-            flash('Account created successfully. Please log in.', 'success')
-            return redirect(url_for('login'))
+            return jsonify({'error': 'Email is already registered'}), 400
 
-    return render_template('signup.html')
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        cursor.execute("""
+            INSERT INTO users (email, password, first_name, last_name, address, birthdate, usertoken)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (email, hashed_password, first_name, last_name, address, birthdate, usertoken))
+
+        connection.commit()
+        return jsonify({'message': 'Registration successful! Please check your email for verification.'}), 201
+
+    finally:
+        cursor.close()
+        connection.close()
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
