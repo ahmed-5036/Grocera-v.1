@@ -135,22 +135,27 @@ def register():
         cursor.close()
         connection.close()
 
-@app.route('/login', methods=['GET', 'POST'])
+# Login Endpoint
+@app.route('/api/login', methods=['POST'])
 def login():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+    data = request.json
+    email = data.get('email')
+    password = data.get('password')
 
-        cursor.execute('SELECT * FROM users WHERE email=%s AND password=%s', (email, password))
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
-        if user:
-            session['user_email'] = email
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
+        if user and bcrypt.checkpw(password.encode('utf-8'), user[1].encode('utf-8')):
+            return jsonify({'message': 'Login successful!', 'body': user[6]}), 200
         else:
-            flash('Invalid email or password. Please try again.', 'error')
+            return jsonify({'error': 'Invalid email or password'}), 401
 
-    return render_template('login.html')
+    finally:
+        cursor.close()
+        connection.close()
 if __name__ == '__main__':
     app.run(debug=True)
