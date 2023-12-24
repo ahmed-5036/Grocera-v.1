@@ -3,6 +3,8 @@ from flask_mail import Mail, Message
 import mysql.connector
 import bcrypt
 import uuid
+import random
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -167,5 +169,47 @@ def login():
     finally:
         cursor.close()
         connection.close()
+
+# Forgot Password Endpoint
+@app.route('/api/forgot_password', methods=['POST'])
+def forgot_password():
+    data = request.json
+    email = data.get('email')
+
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        if user:
+            # Generate a random 6-digit OTP
+            otp = str(random.randint(100000, 999999))
+
+            session['reset_email'] = email
+
+            # Calculate the OTP expiration time (e.g., 15 minutes from now)
+            otp_expiration = datetime.now() + timedelta(minutes=15)
+
+            # Save the OTP and its expiration time in the database
+            cursor.execute("""
+                UPDATE users
+                SET otp = %s, otp_expiration = %s
+                WHERE email = %s
+            """, (otp, otp_expiration, email))
+            connection.commit()
+
+            # Send the password reset email with the OTP
+            send_password_reset_email(email, otp)
+
+            return jsonify({'message': 'Password reset email sent. Please check your email.'}), 200
+        else:
+            return jsonify({'error': 'Email not found. Please enter a valid email address.'}), 404
+
+    finally:
+        cursor.close()
+        connection.close()
+
 if __name__ == '__main__':
     app.run(debug=True)
