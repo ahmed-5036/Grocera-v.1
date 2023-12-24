@@ -250,7 +250,34 @@ def enter_otp():
     finally:
         cursor.close()
         connection.close()
-        
+
+# Reset Password Endpoint
+@app.route('/api/reset_password', methods=['POST'])
+def reset_password():
+    data = request.json
+    new_password = data.get('new_password')
+
+    connection = mysql.connector.connect(**db_config)
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (session['reset_email'],))
+        user = cursor.fetchone()
+
+        if user:
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("""
+                UPDATE users SET password = %s, otp_change_allowed = FALSE WHERE email = %s
+            """, (hashed_password, user[0]))
+            connection.commit()
+
+            return jsonify({'message': 'Password reset successful! You can now log in.'}), 203
+        else:
+            return jsonify({'error': 'Invalid or expired reset token. Please request a new password reset.'}), 401
+
+    finally:
+        cursor.close()
+        connection.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
