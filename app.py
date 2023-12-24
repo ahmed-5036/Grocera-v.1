@@ -279,5 +279,10 @@ def reset_password():
         cursor.close()
         connection.close()
 
+def send_password_reset_email(email, otp):
+    msg = Message('Password Reset - OTP', recipients=[email])
+    msg.body = f'reset password otp is: {otp}'
+    mail.send(msg)
+
 if __name__ == '__main__':
     app.run(debug=True)
