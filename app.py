@@ -24,9 +24,11 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'grocerystore33@gmail.com'
-app.config['MAIL_PASSWORD'] = '3just_2023'
+app.config['MAIL_PASSWORD'] = 'bwxm ptvn fdrc oqie'
+app.config['MAIL_DEFAULT_SENDER'] = 'grocerystore33@gmail.com'
 
 mail = Mail(app)
+
 # Create a MySQL connection and cursor
 connection = mysql.connector.connect(**db_config)
 cursor = connection.cursor()
@@ -38,13 +40,13 @@ cursor.execute("""
         password VARCHAR(255) NOT NULL,
         first_name VARCHAR(255) NOT NULL,
         last_name VARCHAR(255) NOT NULL,
-        date_of_birth DATE,
+        birthdate DATE,
         address VARCHAR(255) NOT NULL,
-        user_token VARCHAR(255) UNIQUE NOT NULL,
+        usertoken VARCHAR(255) UNIQUE NOT NULL,
         otp INT,
         otp_expiration TIMESTAMP,
         otp_change_allowed BOOLEAN DEFAULT FALSE
-    )
+    );
 """)
 
 # Create the products table
@@ -57,7 +59,7 @@ cursor.execute("""
         nationality VARCHAR(255),
         expiry_date DATE,
         product_image VARCHAR(255)
-    )
+    );
 """)
 
 # Create the shopping_carts table
@@ -66,7 +68,7 @@ cursor.execute("""
         cart_id INT AUTO_INCREMENT PRIMARY KEY,
         user_id VARCHAR(255) UNIQUE,
         FOREIGN KEY (user_id) REFERENCES users(email)
-    )
+    );
 """)
 
 # Create the cart_items table
@@ -137,7 +139,7 @@ def register():
 
         cursor.execute("""
             INSERT INTO users (email, password, first_name, last_name, address, birthdate, usertoken)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (email, hashed_password, first_name, last_name, address, birthdate, usertoken))
 
         connection.commit()
@@ -146,6 +148,7 @@ def register():
     finally:
         cursor.close()
         connection.close()
+
 
 # Login Endpoint
 @app.route('/api/login', methods=['POST'])
@@ -170,6 +173,7 @@ def login():
         cursor.close()
         connection.close()
 
+
 # Forgot Password Endpoint
 @app.route('/api/forgot_password', methods=['POST'])
 def forgot_password():
@@ -186,8 +190,6 @@ def forgot_password():
         if user:
             # Generate a random 6-digit OTP
             otp = str(random.randint(100000, 999999))
-
-            session['reset_email'] = email
 
             # Calculate the OTP expiration time (e.g., 15 minutes from now)
             otp_expiration = datetime.now() + timedelta(minutes=15)
@@ -211,15 +213,11 @@ def forgot_password():
         cursor.close()
         connection.close()
 
-
 # Enter OTP Endpoint
-@app.route('/api/enter_otp', methods=['POST'])
-def enter_otp():
+@app.route('/api/enter_otp/<email>', methods=['POST'])
+def enter_otp(email):
     data = request.json
     entered_otp = data.get('otp')
-
-    # Retrieve the email from the session
-    email = session.get('reset_email')
 
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor()
@@ -230,7 +228,7 @@ def enter_otp():
 
         if user:
             # Check if the entered OTP matches the one stored in the database
-            if entered_otp == user[8] and datetime.now() < user[9]:
+            if entered_otp == user[7] and datetime.now() < user[8]:
                 # OTP is valid
                 cursor.execute("""
                                 UPDATE users
@@ -252,8 +250,8 @@ def enter_otp():
         connection.close()
 
 # Reset Password Endpoint
-@app.route('/api/reset_password', methods=['POST'])
-def reset_password():
+@app.route('/api/reset_password/<email>', methods=['POST'])
+def reset_password(email):
     data = request.json
     new_password = data.get('new_password')
 
@@ -261,10 +259,10 @@ def reset_password():
     cursor = connection.cursor()
 
     try:
-        cursor.execute("SELECT * FROM users WHERE email = %s", (session['reset_email'],))
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
-        if user:
+        if user and user[9]:
             hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
             cursor.execute("""
                 UPDATE users SET password = %s, otp_change_allowed = FALSE WHERE email = %s
@@ -283,6 +281,7 @@ def send_password_reset_email(email, otp):
     msg = Message('Password Reset - OTP', recipients=[email])
     msg.body = f'reset password otp is: {otp}'
     mail.send(msg)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
