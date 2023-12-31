@@ -302,9 +302,15 @@ def expiry_discounts():
     try:
         connection = mysql.connector.connect(**db_config)
         cursor = connection.cursor(dictionary=True)
-        # Retrieve items with discounts
+        # Retrieve items with discounts and count of users who bought them in the last 24 hours
         cursor.execute("""
-            SELECT * FROM products WHERE discount_percentage IS NOT NULL;
+            SELECT p.*, COUNT(DISTINCT o.user_id) AS user_count
+            FROM products p
+            LEFT JOIN order_details od ON p.product_id = od.product_id
+            LEFT JOIN orders o ON od.order_id = o.order_id
+            WHERE p.discount_percentage IS NOT NULL
+              AND o.order_date >= NOW() - INTERVAL 24 HOUR
+            GROUP BY p.product_id;
         """)
         discounted_items = cursor.fetchall()
 
@@ -317,6 +323,7 @@ def expiry_discounts():
     finally:
         cursor.close()
         connection.close()
+
 
 # National Products Endpoint
 @app.route('/api/national_products', methods=['GET'])
@@ -510,6 +517,47 @@ def filter_products():
     finally:
         cursor.close()
         connection.close()
+
+# Search Products Endpoint
+@app.route('/api/search', methods=['GET'])
+def search_products():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+
+        # Get the search keyword from the query string
+        keyword = request.args.get('keyword')
+
+        # Build the SQL query for searching products
+        query = """
+            SELECT p.*, COUNT(DISTINCT o.user_id) AS user_count
+            FROM products p
+            LEFT JOIN order_details od ON p.product_id = od.product_id
+            LEFT JOIN orders o ON od.order_id = o.order_id
+            WHERE o.order_date >= NOW() - INTERVAL 24 HOUR
+            AND (p.name LIKE %s OR p.brand_name LIKE %s)
+            GROUP BY p.product_id;
+        """
+
+        # Execute the SQL query with the search keyword
+        cursor.execute(query, (f'%{keyword}%', f'%{keyword}%'))
+        search_results = cursor.fetchall()
+
+        if not search_results:
+            return jsonify({'error': 'No products found for the given keyword'}), 404
+
+        # Return the search results as JSON
+        return jsonify({'search_results': search_results})
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
+# Example usage: /api/search?keyword=your_search_term
 
 
 # Add to Cart Endpoint
