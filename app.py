@@ -308,6 +308,37 @@ def expiry_discounts():
         print(f"Database error: {err}")
         return jsonify({'error': 'Internal server error'}), 500
 
+    finally:
+        cursor.close()
+        connection.close()
+
+# National Products Endpoint
+@app.route('/api/national_products', methods=['GET'])
+def national_products():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+        # Retrieve national products
+        cursor.execute("""
+            SELECT p.*, COUNT(DISTINCT o.user_id) AS user_count
+            FROM products p
+            LEFT JOIN order_details od ON p.product_id = od.product_id
+            LEFT JOIN orders o ON od.order_id = o.order_id
+            WHERE p.is_national = TRUE AND o.order_date >= NOW() - INTERVAL 24 HOUR
+            GROUP BY p.product_id;
+        """)
+        national_items = cursor.fetchall()
+
+        return jsonify({'national_products': national_items})
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
 def send_password_reset_email(email, otp):
     msg = Message('Password Reset - OTP', recipients=[email])
     msg.body = f'reset password otp is: {otp}'
