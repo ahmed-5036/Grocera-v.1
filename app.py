@@ -339,6 +339,27 @@ def national_products():
         cursor.close()
         connection.close()
 
+# Add a new route to retrieve all brands
+@app.route('/api/brands', methods=['GET'])
+def get_brands():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT * FROM brands;
+        """)
+        brands = cursor.fetchall()
+
+        return jsonify({'brands': brands})
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
 def send_password_reset_email(email, otp):
     msg = Message('Password Reset - OTP', recipients=[email])
     msg.body = f'reset password otp is: {otp}'
