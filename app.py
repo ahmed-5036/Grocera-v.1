@@ -1,13 +1,15 @@
-from flask import Flask, request, jsonify, abort, session
+from flask import Flask, request, jsonify, abort
+from flask_cors import CORS
 from flask_mail import Mail, Message
 import mysql.connector
 import bcrypt
 import uuid
 import random
 from datetime import datetime, timedelta
+from flask_apscheduler import APScheduler
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
+CORS(app=app)
 
 # MySQL database configuration
 db_config = {
@@ -29,89 +31,100 @@ app.config['MAIL_DEFAULT_SENDER'] = 'grocerystore33@gmail.com'
 
 mail = Mail(app)
 
-# Create a MySQL connection and cursor
-connection = mysql.connector.connect(**db_config)
-cursor = connection.cursor()
-
-# Create the users table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        email VARCHAR(255) PRIMARY KEY,
-        password VARCHAR(255) NOT NULL,
-        first_name VARCHAR(255) NOT NULL,
-        last_name VARCHAR(255) NOT NULL,
-        birthdate DATE,
-        address VARCHAR(255) NOT NULL,
-        usertoken VARCHAR(255) UNIQUE NOT NULL,
-        otp INT,
-        otp_expiration TIMESTAMP,
-        otp_change_allowed BOOLEAN DEFAULT FALSE
-    );
-""")
-
-# Create the products table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS products (
-        product_id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        brand VARCHAR(255) NOT NULL,
-        price DECIMAL(10, 2) NOT NULL,
-        nationality VARCHAR(255),
-        expiry_date DATE,
-        product_image VARCHAR(255)
-    );
-""")
-
-# Create the shopping_carts table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS shopping_carts (
-        cart_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(255) UNIQUE,
-        FOREIGN KEY (user_id) REFERENCES users(email)
-    );
-""")
-
-# Create the cart_items table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cart_items (
-        cart_item_id INT AUTO_INCREMENT PRIMARY KEY,
-        cart_id INT,
-        product_id INT,
-        quantity INT NOT NULL,
-        FOREIGN KEY (cart_id) REFERENCES shopping_carts(cart_id),
-        FOREIGN KEY (product_id) REFERENCES products(product_id)
-    )
-""")
-
-# Create the orders table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS orders (
-        order_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(255),
-        order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(email)
-    )
-""")
-
-# Create the order_details table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS order_details (
-        order_detail_id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT,
-        product_id INT,
-        quantity INT NOT NULL,
-        total_cost DECIMAL(10, 2) NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(order_id),
-        FOREIGN KEY (product_id) REFERENCES products(product_id)
-    )
-""")
-
-# Commit changes to the database
-connection.commit()
-
-# Close the cursor and database connection
-cursor.close()
-connection.close()
+# # Create a MySQL connection and cursor
+# connection = mysql.connector.connect(**db_config)
+# cursor = connection.cursor()
+#
+# # Create the users table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS users (
+#         email VARCHAR(255) PRIMARY KEY,
+#         password VARCHAR(255) NOT NULL,
+#         first_name VARCHAR(255) NOT NULL,
+#         last_name VARCHAR(255) NOT NULL,
+#         birthdate DATE,
+#         address VARCHAR(255) NOT NULL,
+#         usertoken VARCHAR(255) UNIQUE NOT NULL,
+#         otp INT,
+#         otp_expiration TIMESTAMP,
+#         otp_change_allowed BOOLEAN DEFAULT FALSE
+#     );
+# """)
+#
+# # Create the brands table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS brands (
+#         brand_name VARCHAR(255) PRIMARY KEY,
+#         brand_image VARCHAR(255)
+#     );
+# """)
+#
+# # Create the products table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS products (
+#         product_id INT AUTO_INCREMENT PRIMARY KEY,
+#         name VARCHAR(255) NOT NULL,
+#         brand_name VARCHAR(255) NOT NULL,
+#         price DECIMAL(10, 2) NOT NULL,
+#         expiry_date DATE,
+#         product_image VARCHAR(255),
+#         discount_percentage DECIMAL(5, 2) DEFAULT NULL,
+#         is_national BOOLEAN DEFAULT FALSE,
+#         num_of_buyers INT DEFAULT 0,
+#         FOREIGN KEY (brand_name) REFERENCES brands(brand_name)
+#     );
+# """)
+#
+# # Create the shopping_carts table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS shopping_carts (
+#         cart_id INT AUTO_INCREMENT PRIMARY KEY,
+#         user_id VARCHAR(255) UNIQUE,
+#         FOREIGN KEY (user_id) REFERENCES users(email)
+#     );
+# """)
+#
+# # Create the cart_items table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS cart_items (
+#         cart_item_id INT AUTO_INCREMENT PRIMARY KEY,
+#         cart_id INT,
+#         product_id INT,
+#         quantity INT NOT NULL,
+#         FOREIGN KEY (cart_id) REFERENCES shopping_carts(cart_id),
+#         FOREIGN KEY (product_id) REFERENCES products(product_id)
+#     );
+# """)
+#
+# # Create the orders table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS orders (
+#         order_id INT AUTO_INCREMENT PRIMARY KEY,
+#         user_id VARCHAR(255),
+#         order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#         FOREIGN KEY (user_id) REFERENCES users(email)
+#     );
+# """)
+#
+# # Create the order_details table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS order_details (
+#         order_detail_id INT AUTO_INCREMENT PRIMARY KEY,
+#         order_id INT,
+#         product_id INT,
+#         quantity INT NOT NULL,
+#         total_cost DECIMAL(10, 2) NOT NULL,
+#         FOREIGN KEY (order_id) REFERENCES orders(order_id),
+#         FOREIGN KEY (product_id) REFERENCES products(product_id)
+#     );
+# """)
+#
+# # Commit changes to the database
+# connection.commit()
+#
+# # Close the cursor and database connection
+# cursor.close()
+# connection.close()
 
 # Registration Endpoint
 @app.route('/api/register', methods=['POST'])
@@ -277,11 +290,60 @@ def reset_password(email):
         cursor.close()
         connection.close()
 
-def send_password_reset_email(email, otp):
-    msg = Message('Password Reset - OTP', recipients=[email])
-    msg.body = f'reset password otp is: {otp}'
-    mail.send(msg)
+scheduler = APScheduler()
+def update_discounts():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+        # Check if discounts are already generated
+        cursor.execute("""
+            SELECT COUNT(*) FROM products WHERE discount_percentage IS NOT NULL;
+        """)
+        discounts_generated = cursor.fetchone()[0]
 
+        if not discounts_generated:
+            # Retrieve near-to-expire items
+            cursor.execute("""
+                SELECT * FROM products
+                WHERE expiry_date >= CURDATE() AND expiry_date <= CURDATE() + INTERVAL 7 DAY;
+            """)
+            near_to_expire_items = cursor.fetchall()
+
+            # Assign random discounts to near-to-expire items and store in the database
+            for item in near_to_expire_items:
+                discount_percentage = random.uniform(5, 20)  # Random discount between 5% and 20%
+
+                # Store the discount information in the database
+                cursor.execute("""
+                    UPDATE products
+                    SET discount_percentage = %s
+                    WHERE product_id = %s;
+                """, (discount_percentage, item[0]))
+                connection.commit()
+        print("Updating discounts...")
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
+# Configure the scheduler
+app.config['SCHEDULER_API_ENABLED'] = True
+app.config['JOBS'] = [
+    {
+        'id': 'my_job',
+        'func': update_discounts,
+        'trigger': 'interval',
+        'seconds': 3600,
+    }
+]
+
+# Start the scheduler when the app starts
+scheduler.init_app(app)
+scheduler.start()
 
 if __name__ == '__main__':
     app.run(debug=True)
