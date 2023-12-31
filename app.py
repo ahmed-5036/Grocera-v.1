@@ -290,6 +290,29 @@ def reset_password(email):
         cursor.close()
         connection.close()
 
+# Expiry Discounts Endpoint
+@app.route('/api/expiry_discounts', methods=['GET'])
+def expiry_discounts():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+        # Retrieve items with discounts
+        cursor.execute("""
+            SELECT * FROM products WHERE discount_percentage IS NOT NULL;
+        """)
+        discounted_items = cursor.fetchall()
+
+        return jsonify({'expiry_discounts': discounted_items})
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+def send_password_reset_email(email, otp):
+    msg = Message('Password Reset - OTP', recipients=[email])
+    msg.body = f'reset password otp is: {otp}'
+    mail.send(msg)
+
 scheduler = APScheduler()
 def update_discounts():
     try:
