@@ -390,6 +390,34 @@ def get_products_by_brand(brand):
         cursor.close()
         connection.close()
 
+# All Products Endpoint
+@app.route('/api/all_products', methods=['GET'])
+def get_all_products():
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor(dictionary=True)
+        # Retrieve all products and count users who bought each product in the last 24 hours
+        cursor.execute("""
+            SELECT p.*, COUNT(DISTINCT o.user_id) AS user_count
+            FROM products p
+            LEFT JOIN order_details od ON p.product_id = od.product_id
+            LEFT JOIN orders o ON od.order_id = o.order_id
+            WHERE o.order_date >= NOW() - INTERVAL 24 HOUR
+            GROUP BY p.product_id;
+        """)
+
+        products = cursor.fetchall()
+
+        return jsonify({'all_products': products})
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
 def send_password_reset_email(email, otp):
     msg = Message('Password Reset - OTP', recipients=[email])
     msg.body = f'reset password otp is: {otp}'
