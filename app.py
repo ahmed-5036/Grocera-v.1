@@ -31,100 +31,100 @@ app.config['MAIL_DEFAULT_SENDER'] = 'grocerystore33@gmail.com'
 
 mail = Mail(app)
 
-# Create a MySQL connection and cursor
-connection = mysql.connector.connect(**db_config)
-cursor = connection.cursor()
-
-# Create the users table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        email VARCHAR(255) PRIMARY KEY,
-        password VARCHAR(255) NOT NULL,
-        first_name VARCHAR(255) NOT NULL,
-        last_name VARCHAR(255) NOT NULL,
-        birthdate DATE,
-        address VARCHAR(255) NOT NULL,
-        usertoken VARCHAR(255) UNIQUE NOT NULL,
-        otp INT,
-        otp_expiration TIMESTAMP,
-        otp_change_allowed BOOLEAN DEFAULT FALSE
-    );
-""")
-
-# Create the brands table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS brands (
-        brand_name VARCHAR(255) PRIMARY KEY,
-        brand_image VARCHAR(255)
-    );
-""")
-
-# Create the products table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS products (
-        product_id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        brand_name VARCHAR(255) NOT NULL,
-        price DECIMAL(10, 2) NOT NULL,
-        expiry_date DATE,
-        product_image VARCHAR(255),
-        discount_percentage DECIMAL(5, 2) DEFAULT NULL,
-        is_national BOOLEAN DEFAULT FALSE,
-        num_of_buyers INT DEFAULT 0,
-        FOREIGN KEY (brand_name) REFERENCES brands(brand_name)
-    );
-""")
-
-# Create the shopping_carts table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS shopping_carts (
-        cart_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(255) UNIQUE,
-        FOREIGN KEY (user_id) REFERENCES users(email)
-    );
-""")
-
-# Create the cart_items table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cart_items (
-        cart_item_id INT AUTO_INCREMENT PRIMARY KEY,
-        cart_id INT,
-        product_id INT,
-        quantity INT NOT NULL,
-        FOREIGN KEY (cart_id) REFERENCES shopping_carts(cart_id),
-        FOREIGN KEY (product_id) REFERENCES products(product_id)
-    );
-""")
-
-# Create the orders table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS orders (
-        order_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(255),
-        order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(email)
-    );
-""")
-
-# Create the order_details table
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS order_details (
-        order_detail_id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT,
-        product_id INT,
-        quantity INT NOT NULL,
-        total_cost DECIMAL(10, 2) NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(order_id),
-        FOREIGN KEY (product_id) REFERENCES products(product_id)
-    );
-""")
-
-# Commit changes to the database
-connection.commit()
-
-# Close the cursor and database connection
-cursor.close()
-connection.close()
+# # Create a MySQL connection and cursor
+# connection = mysql.connector.connect(**db_config)
+# cursor = connection.cursor()
+#
+# # Create the users table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS users (
+#         email VARCHAR(255) PRIMARY KEY,
+#         password VARCHAR(255) NOT NULL,
+#         first_name VARCHAR(255) NOT NULL,
+#         last_name VARCHAR(255) NOT NULL,
+#         birthdate DATE,
+#         address VARCHAR(255) NOT NULL,
+#         usertoken VARCHAR(255) UNIQUE NOT NULL,
+#         otp INT,
+#         otp_expiration TIMESTAMP,
+#         otp_change_allowed BOOLEAN DEFAULT FALSE
+#     );
+# """)
+#
+# # Create the brands table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS brands (
+#         brand_name VARCHAR(255) PRIMARY KEY,
+#         brand_image VARCHAR(255)
+#     );
+# """)
+#
+# # Create the products table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS products (
+#         product_id INT AUTO_INCREMENT PRIMARY KEY,
+#         name VARCHAR(255) NOT NULL,
+#         brand_name VARCHAR(255) NOT NULL,
+#         price DECIMAL(10, 2) NOT NULL,
+#         expiry_date DATE,
+#         product_image VARCHAR(255),
+#         discount_percentage DECIMAL(5, 2) DEFAULT NULL,
+#         is_national BOOLEAN DEFAULT FALSE,
+#         num_of_buyers INT DEFAULT 0,
+#         FOREIGN KEY (brand_name) REFERENCES brands(brand_name)
+#     );
+# """)
+#
+# # Create the shopping_carts table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS shopping_carts (
+#         cart_id INT AUTO_INCREMENT PRIMARY KEY,
+#         user_id VARCHAR(255) UNIQUE,
+#         FOREIGN KEY (user_id) REFERENCES users(email)
+#     );
+# """)
+#
+# # Create the cart_items table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS cart_items (
+#         cart_item_id INT AUTO_INCREMENT PRIMARY KEY,
+#         cart_id INT,
+#         product_id INT,
+#         quantity INT NOT NULL,
+#         FOREIGN KEY (cart_id) REFERENCES shopping_carts(cart_id),
+#         FOREIGN KEY (product_id) REFERENCES products(product_id)
+#     );
+# """)
+#
+# # Create the orders table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS orders (
+#         order_id INT AUTO_INCREMENT PRIMARY KEY,
+#         user_id VARCHAR(255),
+#         order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+#         FOREIGN KEY (user_id) REFERENCES users(email)
+#     );
+# """)
+#
+# # Create the order_details table
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS order_details (
+#         order_detail_id INT AUTO_INCREMENT PRIMARY KEY,
+#         order_id INT,
+#         product_id INT,
+#         quantity INT NOT NULL,
+#         total_cost DECIMAL(10, 2) NOT NULL,
+#         FOREIGN KEY (order_id) REFERENCES orders(order_id),
+#         FOREIGN KEY (product_id) REFERENCES products(product_id)
+#     );
+# """)
+#
+# # Commit changes to the database
+# connection.commit()
+#
+# # Close the cursor and database connection
+# cursor.close()
+# connection.close()
 
 # Registration Endpoint
 @app.route('/api/register', methods=['POST'])
@@ -572,15 +572,6 @@ def add_to_cart():
         product_id = data.get('product_id')
         quantity = data.get('quantity')
 
-        # Check if the user has an existing shopping cart
-        cursor.execute("SELECT * FROM shopping_carts WHERE user_id = %s", (user_id,))
-        shopping_cart = cursor.fetchone()
-
-        if not shopping_cart:
-            # Create a new shopping cart for the user
-            cursor.execute("INSERT INTO shopping_carts (user_id) VALUES (%s)", (user_id,))
-            connection.commit()
-
         # Get the shopping cart ID
         cursor.execute("SELECT * FROM shopping_carts WHERE user_id = %s", (user_id,))
         shopping_cart = cursor.fetchone()
@@ -590,8 +581,8 @@ def add_to_cart():
         cursor.execute("""
             INSERT INTO cart_items (cart_id, product_id, quantity)
             VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity);
-        """, (cart_id, product_id, quantity))
+            ON DUPLICATE KEY UPDATE quantity = quantity + %s;
+        """, (cart_id, product_id, quantity, quantity))
 
         connection.commit()
 
@@ -605,45 +596,35 @@ def add_to_cart():
         cursor.close()
         connection.close()
 
+# Remove from Cart Endpoint
 @app.route('/api/remove_from_cart', methods=['POST'])
 def remove_from_cart():
     try:
         connection = mysql.connector.connect(**db_config)
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
 
         data = request.json
-        user_email = data.get('user_email')
+        user_id = data.get('user_id')
         product_id = data.get('product_id')
 
-        # Check if the user and product exist
-        cursor.execute("SELECT * FROM users WHERE email = %s", (user_email,))
-        user = cursor.fetchone()
+        # Get the shopping cart ID for the user
+        cursor.execute("SELECT * FROM shopping_carts WHERE user_id = %s", (user_id,))
+        shopping_cart = cursor.fetchone()
 
-        cursor.execute("SELECT * FROM products WHERE product_id = %s", (product_id,))
-        product = cursor.fetchone()
+        if not shopping_cart:
+            return jsonify({'error': 'User does not have a shopping cart'}), 404
 
-        if not user or not product:
-            return jsonify({'error': 'User or product not found'}), 404
+        cart_id = shopping_cart['cart_id']
 
-        # Check if the product is in the cart
+        # Remove the product from the cart
         cursor.execute("""
-            SELECT * FROM cart_items
-            WHERE cart_id = (SELECT cart_id FROM shopping_carts WHERE user_id = %s)
-            AND product_id = %s
-        """, (user_email, product_id))
-        existing_item = cursor.fetchone()
+            DELETE FROM cart_items
+            WHERE cart_id = %s AND product_id = %s;
+        """, (cart_id, product_id))
 
-        if existing_item:
-            # Remove the item from the cart
-            cursor.execute("""
-                DELETE FROM cart_items
-                WHERE cart_item_id = %s
-            """, (existing_item[0],))
+        connection.commit()
 
-            connection.commit()
-            return jsonify({'message': 'Item removed from the cart successfully'}), 200
-        else:
-            return jsonify({'error': 'Item not found in the cart'}), 404
+        return jsonify({'message': 'Product removed from cart successfully'}), 200
 
     except mysql.connector.Error as err:
         print(f"Database error: {err}")
