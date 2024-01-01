@@ -1,0 +1,17 @@
+runtime: python39
+
+entrypoint: gunicorn -b :$PORT app:app
+
+env_variables:
+  MYSQL_HOST: '35.188.191.89'
+  MYSQL_USER: 'root'
+  MYSQL_PASSWORD: '12345'
+  MYSQL_DATABASE: 'grocery_store'
+  MAIL_SERVER: 'smtp.gmail.com'
+  MAIL_PORT: '587'
+  MAIL_USE_TLS: 'True'
+  MAIL_USE_SSL: 'False'
+  MAIL_USERNAME: 'grocerystore33@gmail.com'
+  MAIL_PASSWORD: 'bwxm ptvn fdrc oqie'
+  MAIL_DEFAULT_SENDER: 'grocerystore33@gmail.com'
+  FLASK_ENV: 'production'
